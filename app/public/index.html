@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Loan EMI Calculator</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- jQuery -->
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+</head>
+<body class="bg-light">
+    <div class="container mt-5">
+        <div class="row">
+            <!-- Form Column -->
+            <div class="col-md-5">
+                <div class="card shadow">
+                    <div class="card-header bg-primary text-white">
+                        <h4 class="mb-0">EMI Calculator</h4>
+                    </div>
+                    <div class="card-body">
+                        <form id="emiForm">
+                            <div class="mb-3">
+                                <label class="form-label">Loan Amount (P)</label>
+                                <input type="number" class="form-control" id="principal" required min="1" step="any">
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Annual Interest Rate (%)</label>
+                                <input type="number" class="form-control" id="rate" required min="0.01" step="any">
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Tenure (Months)</label>
+                                <input type="number" class="form-control" id="months" required min="1" step="1">
+                            </div>
+                            <button type="submit" class="btn btn-primary w-100">Calculate EMI</button>
+                        </form>
+                        
+                        <!-- Result Panel -->
+                        <div id="resultPanel" class="mt-4 d-none alert alert-success">
+                            <h5>Result</h5>
+                            <p class="mb-1"><strong>EMI:</strong> <span id="resEmi"></span></p>
+                            <p class="mb-1"><strong>Total Payment:</strong> <span id="resTotal"></span></p>
+                            <p class="mb-1"><strong>Total Interest:</strong> <span id="resInterest"></span></p>
+                            <hr>
+                            <small class="text-muted">Served by Pod: <span id="resPod"></span> (<span id="resIp"></span>)</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- History Column -->
+            <div class="col-md-7">
+                <div class="card shadow">
+                    <div class="card-header bg-secondary text-white">
+                        <h5 class="mb-0">Recent Calculations (Last 10)</h5>
+                    </div>
+                    <div class="card-body table-responsive">
+                        <table class="table table-striped table-hover">
+                            <thead>
+                                <tr>
+                                    <th>P</th>
+                                    <th>Rate</th>
+                                    <th>Months</th>
+                                    <th>EMI</th>
+                                    <th>Served By</th>
+                                </tr>
+                            </thead>
+                            <tbody id="historyBody">
+                                <tr><td colspan="5" class="text-center">No history yet.</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- AJAX Script -->
+    <script>
+        function loadHistory() {
+            $.get('/api/history', function(data) {
+                let html = '';
+                if (data.length === 0) {
+                    html = '<tr><td colspan="5" class="text-center">No history yet.</td></tr>';
+                } else {
+                    data.forEach(item => {
+                        html += `<tr>
+                            <td>${item.principal}</td>
+                            <td>${item.rate}%</td>
+                            <td>${item.months}</td>
+                            <td>${item.emi}</td>
+                            <td>${item.servedBy}</td>
+                        </tr>`;
+                    });
+                }
+                $('#historyBody').html(html);
+            });
+        }
+
+        $(document).ready(function() {
+            loadHistory(); // Page load par history fetch karo
+
+            $('#emiForm').submit(function(e) {
+                e.preventDefault(); // No postback
+                
+                let principal = $('#principal').val();
+                let rate = $('#rate').val();
+                let months = $('#months').val();
+
+                // Basic client validation
+                if (principal <= 0 || rate <= 0 || months <= 0) {
+                    alert("Please enter positive numbers only.");
+                    return;
+                }
+
+                $.ajax({
+                    url: '/api/emi',
+                    type: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify({ principal, rate, months }),
+                    success: function(res) {
+                        // Update result panel
+                        $('#resEmi').text(res.emi);
+                        $('#resTotal').text(res.totalPayment);
+                        $('#resInterest').text(res.totalInterest);
+                        $('#resPod').text(res.servedBy);
+                        $('#resIp').text(res.ip);
+                        $('#resultPanel').removeClass('d-none');
+                        
+                        // Refresh history table
+                        loadHistory();
+                    },
+                    error: function(err) {
+                        alert("Error: " + (err.responseJSON ? err.responseJSON.error : err.statusText));
+                    }
+                });
+            });
+        });
+    </script>
+</body>
+</html>
